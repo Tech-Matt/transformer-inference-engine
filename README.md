@@ -5,6 +5,12 @@ A simple pure C implementation of a transformer inference engine
 
 [Credits](https://arxiv.org/pdf/1706.03762)
 
+## Directory Tree
+- ops.h
+- tensor.h
+- embedding.h
+- pos_embedding.h
+
 ## Implementation Plan
 - [ ] Tensors
 - [ ] Implement basic operations like: matrix multiplications, softmax, ReLu
