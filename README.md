@@ -21,3 +21,8 @@ A pure C implementation of a transformer inference engine
 - [ ] Residual Connections
 - [ ] Linear Layer
 - [ ] FeedForward Layer
+
+
+## Notes
+
+- As of now, for easeness of implementation, I am going to use Heap Allocation for data structures
