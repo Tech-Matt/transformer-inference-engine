@@ -37,4 +37,21 @@ Tensor * Tensor_new(int ndim, int * dim, float *data);
 // Destructor
 void Tensor_free(Tensor *t);
 
+// Element-wise ops - tensor + tensor
+void tensor_add(const Tensor *a, const Tensor *b, Tensor *out);
+void tensor_sub(const Tensor *a, const Tensor *b, Tensor *out);
+void tensor_mul(const Tensor *a, const Tensor *b, Tensor *out);
+void tensor_div(const Tensor *a, const Tensor *b, Tensor *out);
+
+// tensor + scalar
+void tensor_add_scalar(const Tensor *a, float s, Tensor *out);
+void tensor_sub_scalar(const Tensor *a, float s, Tensor *out);
+void tensor_mul_scalar(const Tensor *a, float s, Tensor *out);
+void tensor_div_scalar(const Tensor *a, float s, Tensor *out);
+
+// Matrix ops
+void tensor_matmul(const Tensor *a, const Tensor *b, Tensor *out);
+void tensor_transpose(const Tensor *a, Tensor *out);
+
+
 #endif

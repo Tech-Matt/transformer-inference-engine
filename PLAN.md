@@ -42,13 +42,13 @@ Element at [i][j][k] → data[i*strides[0] + j*strides[1] + k*strides[2]]
 
 ---
 
-## Phase 2: Tensor Operations
+## Phase 2: Tensor Operations (DONE)
 Files: `include/tensor.h`, `src/tensor.c`
 Pure tensor mechanics — no ML semantics, just array arithmetic.
 
-- [ ] Element-wise: `tensor_add`, `tensor_sub`, `tensor_mul`, `tensor_div` (tensor-tensor and tensor-scalar)
-- [ ] Matrix multiply: `tensor_matmul` (the core operation of attention)
-- [ ] Tensor transpose: `tensor_transpose`
+- [x] Element-wise: `tensor_add`, `tensor_sub`, `tensor_mul`, `tensor_div` (tensor-tensor and tensor-scalar)
+- [x] Matrix multiply: `tensor_matmul` (the core operation of attention)
+- [x] Tensor transpose: `tensor_transpose`
 
 ---
 
