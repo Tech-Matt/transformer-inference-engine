@@ -52,14 +52,14 @@ Pure tensor mechanics — no ML semantics, just array arithmetic.
 
 ---
 
-## Phase 3: Activation Functions & Math Ops
+## Phase 3: Activation Functions & Math Ops (IN PROGRESS)
 Files: `include/ops.h`, `src/ops.c`
 Neural network math operating on Tensors. Separated from tensor mechanics by design — changes here never require touching `tensor.h`.
 
-- [ ] `relu(Tensor *)` — element-wise max(0, x)
-- [ ] `softmax(Tensor *)` — numerically stable version (subtract max before exp)
-- [ ] `log_softmax(Tensor *)` — for output layer
-- [ ] `mean(Tensor *)` and `std(Tensor *)` — needed for layer normalization
+- [x] `relu(Tensor *)` — element-wise max(0, x)
+- [x] `softmax(Tensor *)` — numerically stable version (subtract max before exp)
+- [x] `log_softmax(Tensor *)` — for output layer
+- [ ] `mean(Tensor *, int axis)` and `std(Tensor *, int axis)` — needed for layer normalization
 
 ---
 

@@ -3,7 +3,6 @@
 // (For non-matrix operations like sqrt(), and other operations related to scalars, i am just going to use math.h for now)
 
 // List of required operations to be implemented
-// - random int generator
 // - Mean() on Tensors 
 // - Std() on Tensors
 // - Relu() on Tensors
@@ -12,5 +11,15 @@
 
 #ifndef OPS_H
 #define OPS_H
+
+#include <math.h>
+#include "tensor.h"
+
+
+void relu(const Tensor *in, Tensor *out);
+void softmax(const Tensor *in, Tensor *out);
+void log_softmax(const Tensor *in, Tensor *out);
+float mean(const Tensor *in, int axis);
+float var(const Tensor *in, int axis);
 
 #endif
