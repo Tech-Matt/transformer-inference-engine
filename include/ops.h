@@ -19,7 +19,7 @@
 void relu(const Tensor *in, Tensor *out);
 void softmax(const Tensor *in, Tensor *out);
 void log_softmax(const Tensor *in, Tensor *out);
-float mean(const Tensor *in, int axis);
-float var(const Tensor *in, int axis);
+void mean(const Tensor *in, Tensor * out, int axis);
+void var(const Tensor *in, Tensor * out, int axis);
 
 #endif

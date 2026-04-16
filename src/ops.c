@@ -103,3 +103,42 @@ void log_softmax(const Tensor *in, Tensor *out) {
         out->data[i] = (in->data[i] - max) - logf(exp_sum);
     }
 }
+
+
+void mean(const Tensor *in, Tensor *out, int axis) {
+    // Check ndim
+    assert(in->ndim == out->ndim && "mean: ndim mismatch");
+    assert(axis >= 0 && axis < in->ndim && "mean: axis out of bounds");
+    // Check shapes
+    for (int i = 0; i < in->ndim; i++) {
+        if (i == axis) {
+            assert(out->dim[i] == 1 && "mean: output dim at axis must be 1");
+        } else {
+            assert(in->dim[i] == out->dim[i] && "mean: dim mismatch at non-axis index");
+        }
+    }
+
+    // TODO: Zero-initialize the output data buffer? (do I really need this?)
+
+
+    // TODO: Reduction loop
+    // Loop over every element in the input tensor
+    // Write unchanged dimensions back to out
+    // accumulate sum of reduced dimension from in and write sum
+    // to out.
+
+    // TODO: Final division by in->dim[axis]
+
+}
+
+
+void var(const Tensor* in, Tensor *out, int axis) {
+    // TODO: Assertions
+
+    // TODO: Calculate mean first
+    // You can't compute variance without mean!
+    
+    // TODO: Calculate squared differences
+    
+    // TODO: Final division
+}
