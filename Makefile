@@ -11,3 +11,35 @@ all:
 
 clean:
 	rm -f $(EXECUTABLE_NAME)
+
+
+TEST_EXECUTABLE_NAME=test_engine
+TEST_DIR=tests/
+UNITY_DIR=vendor/unity/
+
+test:
+	@echo "Compiling and running ops tests..."
+	gcc $(FLAGS) \
+		$(TEST_DIR)test_ops.c \
+		$(SRC_DIR)ops.c \
+		$(SRC_DIR)tensor.c \
+		$(UNITY_DIR)unity.c \
+		-I $(INC_DIR) \
+		-I $(UNITY_DIR) \
+		-o test_ops_bin \
+		$(LINKER_FLAGS)
+	./test_ops_bin
+
+	@echo "Compiling and running tensor tests..."
+	gcc $(FLAGS) \
+		$(TEST_DIR)test_tensor.c \
+		$(SRC_DIR)tensor.c \
+		$(UNITY_DIR)unity.c \
+		-I $(INC_DIR) \
+		-I $(UNITY_DIR) \
+		-o test_tensor_bin \
+		$(LINKER_FLAGS)
+	./test_tensor_bin
+
+clean-test:
+	rm -f test_ops_bin test_tensor_bin
