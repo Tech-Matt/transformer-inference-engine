@@ -52,18 +52,43 @@ Pure tensor mechanics — no ML semantics, just array arithmetic.
 
 ---
 
-## Phase 3: Activation Functions & Math Ops (IN PROGRESS)
+## Phase 3: Activation Functions & Math Ops (DONE)
 Files: `include/ops.h`, `src/ops.c`
 Neural network math operating on Tensors. Separated from tensor mechanics by design — changes here never require touching `tensor.h`.
 
 - [x] `relu(Tensor *)` — element-wise max(0, x)
 - [x] `softmax(Tensor *)` — numerically stable version (subtract max before exp)
 - [x] `log_softmax(Tensor *)` — for output layer
-- [ ] `mean(Tensor *, int axis)` and `std(Tensor *, int axis)` — needed for layer normalization
+- [x] `mean(Tensor *, int axis)` — reduction with explicit coordinate arrays for readability
+- [x] `var(Tensor *, int axis)` — two-pass variance algorithm using mean
 
 ---
 
-## Phase 4: Transformer Building Blocks
+## Phase 3.5: Test Infrastructure (NEXT)
+Files: `tests/test_*.c`, `tests/unity.h`, `tests/unity.c`
+Validate all Phase 1–3 primitives using golden-value tests (reference outputs from NumPy/PyTorch).
+
+- [ ] Add Unity test framework to `tests/`
+- [ ] Implement `tests/test_tensor.c` — constructors, strides, indexing
+- [ ] Implement `tests/test_tensor_ops.c` — element-wise and matrix operations
+- [ ] Implement `tests/test_activations.c` — ReLU, softmax, log_softmax
+- [ ] Implement `tests/test_mean_var.c` — mean and variance reduction
+- [ ] Add `test` target to Makefile
+
+**Golden-Value Strategy:** For each operation, compute expected output using NumPy/PyTorch, hardcode as test data in C.
+
+**Why now?** All Phase 1–3 primitives are stable. Tests serve as regression guards and enable safe optimization later.
+
+---
+
+## Phase 3 Final: Layer Normalization (POST-TESTING)
+Files: `include/ops.h`, `src/ops.c`
+Numerical normalization building block for transformer blocks.
+
+- [ ] Implement `layer_norm(Tensor *x, Tensor *gamma, Tensor *beta, Tensor *out, int axis, float epsilon)`
+- [ ] Verify against PyTorch `nn.LayerNorm`
+
+---
 Each block maps cleanly to the "Attention is All You Need" paper (Vaswani et al. 2017).
 
 - [ ] Layer Normalization
