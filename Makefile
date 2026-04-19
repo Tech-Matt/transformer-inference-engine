@@ -29,7 +29,7 @@ test:
 		-I $(UNITY_DIR) \
 		-o $(BUILD_DIR)test_ops_bin \
 		$(LINKER_FLAGS)
-	./test_ops_bin
+	./$(BUILD_DIR)test_ops_bin
 
 	@echo "Compiling and running tensor tests..."
 	gcc $(FLAGS) \
@@ -40,7 +40,7 @@ test:
 		-I $(UNITY_DIR) \
 		-o $(BUILD_DIR)test_tensor_bin \
 		$(LINKER_FLAGS)
-	./test_tensor_bin
+	./$(BUILD_DIR)test_tensor_bin
 
 clean-test:
 	rm -f test_ops_bin test_tensor_bin
