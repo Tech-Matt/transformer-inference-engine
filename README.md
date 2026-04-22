@@ -12,3 +12,7 @@ make          # Build engine
 make test     # Run the test suite
 make clean    # Clean binaries
 ```
+
+## Documentation
+- To be created in the future
+- Right now I am making every file "Doxygen" compliant to easily create an HTML or PDF documentation

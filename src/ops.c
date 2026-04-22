@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
+#include <math.h>
 #include "ops.h"
 
 /**
@@ -247,4 +249,69 @@ void var(const Tensor* in, Tensor *out, int axis) {
     }
 
     free(mean_buf);
+}
+
+
+void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *beta, float epsilon, int axis) {
+    // Check ndim, axis and output shape
+    assert(x->ndim == y->ndim && "layer_norm: ndim mismatch");
+    assert(gamma->ndim == 1 && beta->ndim == 1);
+    assert(axis >= 0 && axis < x->ndim && "var: axis out of bounds");
+    for (int i = 0; i < x->ndim; i++) {
+        assert(x->dim == y->dim && "layer_norm: dim mismatch");
+    }
+    
+    
+    // Initialize temp Tensors for mean() and var()
+    float *data_mean = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
+    int *dim_mean = malloc(sizeof(int) * x->ndim);
+    memcpy(dim_mean, x->dim, sizeof(int) * x->ndim);
+    dim_mean[axis] = 1;
+    Tensor *t_mean = Tensor_new(x->ndim, dim_mean, data_mean); 
+    float *data_var = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
+    int *dim_var = malloc(sizeof(int) * x->ndim);
+    memcpy(dim_var, x->dim, sizeof(int) * x->ndim);
+    dim_var[axis] = 1;
+    Tensor * t_var = Tensor_new(x->ndim, dim_var, data_var); 
+
+    // Compute mean(x), var(x)
+    mean(x, t_mean, axis);
+    var(x, t_var, axis);
+
+    // Let's traverse the entire input using flat index
+    // and compute y = (x-u) / sqrt(var + eps) 
+    int total_elems = x->dim[0] * x->strides[0];
+    for (int i = 0; i < total_elems; i++) {
+        int rem = i;
+        int out_flat = 0;
+        int axis_coord = 0; // We need to save this to look up gamma / beta
+
+        for (int d = 0; d < x->ndim; d++) {
+            // Figure out the coordinate for dimension "d"
+            int coord = rem / x->strides[d];
+
+            // Strip that dimension out of the remainder
+            rem = rem % x->strides[d];
+
+            if (d == axis) {
+                // If we are at the reduction axis, save this coordinate
+                axis_coord = coord;
+            } else {
+                // If we are not at the reduction axis, this coordinate helps
+                // build the flat index for mean/var buckets
+                out_flat += coord * t_mean->strides[d];
+            }
+        }
+
+    }
+
+    tensor_sub(x, mean, y);
+    tensor_add_scalar(var, epsilon, var);
+    // TODO: I need an sqrt() tensor operator here
+    tensor_div(y, var, y);
+
+    // TODO: multiply(but which one? matmul?) by gamma and sum beta
+
+
+    // TODO: Free every malloc()
 }
