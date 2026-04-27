@@ -252,66 +252,117 @@ void var(const Tensor* in, Tensor *out, int axis) {
 }
 
 
+/**
+ * @brief Layer Normalization function
+ *
+ * Performs layer normalization on the input tensor `x` and stores the result in `y`.
+ * The normalization is performed along the specified `axis` using the learned
+ * scale (`gamma`) and shift (`beta`) parameters.
+ *
+ * Formula: y = gamma * (x - mean) / sqrt(variance + epsilon) + beta
+ *
+ * @param x Input tensor to be normalized.
+ * @param y Output tensor (must have same shape as x).
+ * @param gamma Scale parameter tensor (1D).
+ * @param beta Shift parameter tensor (1D).
+ * @param epsilon Small constant for numerical stability.
+ * @param axis Axis along which to normalize.
+ */
 void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *beta, float epsilon, int axis) {
-    // Check ndim, axis and output shape
-    assert(x->ndim == y->ndim && "layer_norm: ndim mismatch");
-    assert(gamma->ndim == 1 && beta->ndim == 1);
-    assert(axis >= 0 && axis < x->ndim && "var: axis out of bounds");
-    for (int i = 0; i < x->ndim; i++) {
-        assert(x->dim == y->dim && "layer_norm: dim mismatch");
-    }
+     // --- Argument validation ---
+     assert(x->ndim == y->ndim && "layer_norm: ndim mismatch");
+     assert(gamma->ndim == 1 && beta->ndim == 1);
+     assert(axis >= 0 && axis < x->ndim && "layer_norm: axis out of bounds");
+     for (int i = 0; i < x->ndim; i++) {
+         assert(x->dim[i] == y->dim[i] && "layer_norm: dim mismatch");
+     }
+
+     /* --- Allocate temporary tensors for mean and variance ---
+      * Shape: same as input but with the reduction axis compressed to size 1.
+      * For input shape [batch, seq, hidden] and axis=2 (hidden),
+      * t_mean and t_var will have shape [batch, seq, 1].
+      */
+     float *data_mean = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
+     int *dim_mean = malloc(sizeof(int) * x->ndim);
+     memcpy(dim_mean, x->dim, sizeof(int) * x->ndim);
+     dim_mean[axis] = 1;
+     Tensor *t_mean = Tensor_new(x->ndim, dim_mean, data_mean); 
+
+     float *data_var = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
+     int *dim_var = malloc(sizeof(int) * x->ndim);
+     memcpy(dim_var, x->dim, sizeof(int) * x->ndim);
+     dim_var[axis] = 1;
+     Tensor *t_var = Tensor_new(x->ndim, dim_var, data_var); 
+
+     /* --- Step 1: Compute mean and variance per token ---
+      * After this, for each token (position along non-axis dimensions),
+      * there is exactly ONE mean value and ONE variance value stored at
+      * t_mean->data[out_flat] and t_var->data[out_flat].
+      */
+     mean(x, t_mean, axis);
+     var(x, t_var, axis);
+
+     /* --- Step 2: Normalize every element and apply affine transform --- */
+     int total_elems = x->dim[0] * x->strides[0];
+
+     // Iterate over every element in the input tensor x
+     for (int i = 0; i < total_elems; i++) {
+         int rem = i;
+         int out_flat = 0;       // will become the flat index into t_mean/t_var
+         int axis_coord = 0;     // will become the index along the normalization axis
+                                 // (used to index gamma/beta)
+
+         /* --- Coordinate decomposition ---
+          * Convert flat index i into multi-dimensional coordinates.
+          * Example for shape [2,3,4] with strides [12,4,1]:
+          *   i = 23  ->  batch=1, seq=2, hidden=3
+          * Then:
+          *   - For dimensions NOT equal to axis (batch, seq), build out_flat
+          *   - For dimension == axis (hidden), save axis_coord
+          */
+         for (int d = 0; d < x->ndim; d++) {
+             int coord = rem / x->strides[d];  // Coordinate in dimension d
+             rem = rem % x->strides[d];        // Remainder for next dimensions
+
+             if (d == axis) {
+                 axis_coord = coord;            // Hidden feature index (to access gamma and beta)
+             } else {
+                 out_flat += coord * t_mean->strides[d];  // Build mean/var index
+             }
+         }
+
+         /* --- Layer Norm formula for this element ---
+          * 1. Normalize: (x - μ) / √(σ² + ε)
+          * 2. Apply affine: γ * normalized + β
+          *
+          * Access patterns:
+          *   x->data[i]        -> input value at flat index i
+          *   t_mean->data[out_flat]  -> mean for this token
+          *   t_var->data[out_flat]   -> variance for this token
+          *   gamma->data[axis_coord] -> scale for this hidden feature
+          *   beta->data[axis_coord]  -> shift for this hidden feature
+          */
+         float x_val = x->data[i];
+         float mean_val = t_mean->data[out_flat];
+         float var_val = t_var->data[out_flat];
+
+         float normalized = (x_val - mean_val) / sqrtf(var_val + epsilon);
+         float y_val = gamma->data[axis_coord] * normalized + beta->data[axis_coord];
+
+         y->data[i] = y_val;
+     }
+
+     /* --- Step 3: Free temporary memory ---
+      * Tensor_free() already frees t->data, t->dim, t->strides, and t itself.
+      * But we allocated dim_mean, data_mean, dim_var, data_var separately,
+      * so those must be freed first before calling Tensor_free() on the Tensor structs.
+      */
+     free(data_mean);
+     free(dim_mean);
+     Tensor_free(t_mean);
+
+     free(data_var);
+     free(dim_var);
+     Tensor_free(t_var);
+ }
     
-    
-    // Initialize temp Tensors for mean() and var()
-    float *data_mean = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
-    int *dim_mean = malloc(sizeof(int) * x->ndim);
-    memcpy(dim_mean, x->dim, sizeof(int) * x->ndim);
-    dim_mean[axis] = 1;
-    Tensor *t_mean = Tensor_new(x->ndim, dim_mean, data_mean); 
-    float *data_var = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
-    int *dim_var = malloc(sizeof(int) * x->ndim);
-    memcpy(dim_var, x->dim, sizeof(int) * x->ndim);
-    dim_var[axis] = 1;
-    Tensor * t_var = Tensor_new(x->ndim, dim_var, data_var); 
-
-    // Compute mean(x), var(x)
-    mean(x, t_mean, axis);
-    var(x, t_var, axis);
-
-    // Let's traverse the entire input using flat index
-    // and compute y = (x-u) / sqrt(var + eps) 
-    int total_elems = x->dim[0] * x->strides[0];
-    for (int i = 0; i < total_elems; i++) {
-        int rem = i;
-        int out_flat = 0;
-        int axis_coord = 0; // We need to save this to look up gamma / beta
-
-        for (int d = 0; d < x->ndim; d++) {
-            // Figure out the coordinate for dimension "d"
-            int coord = rem / x->strides[d];
-
-            // Strip that dimension out of the remainder
-            rem = rem % x->strides[d];
-
-            if (d == axis) {
-                // If we are at the reduction axis, save this coordinate
-                axis_coord = coord;
-            } else {
-                // If we are not at the reduction axis, this coordinate helps
-                // build the flat index for mean/var buckets
-                out_flat += coord * t_mean->strides[d];
-            }
-        }
-
-    }
-
-    tensor_sub(x, mean, y);
-    tensor_add_scalar(var, epsilon, var);
-    // TODO: I need an sqrt() tensor operator here
-    tensor_div(y, var, y);
-
-    // TODO: multiply(but which one? matmul?) by gamma and sum beta
-
-
-    // TODO: Free every malloc()
-}

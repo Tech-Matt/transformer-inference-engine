@@ -21,7 +21,6 @@ void softmax(const Tensor *in, Tensor *out);
 void log_softmax(const Tensor *in, Tensor *out);
 void mean(const Tensor *in, Tensor * out, int axis);
 void var(const Tensor *in, Tensor * out, int axis);
-void sqrt(const Tensor *in, Tensor *out);
 void layer_norm(const Tensor *in, Tensor *out, const Tensor *gamma, const Tensor *beta, float epsilon, int axis);
 
 #endif

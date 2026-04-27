@@ -176,6 +176,47 @@ void test_var_zero(void) {
     Tensor_free(out);
 }
 
+void test_layer_norm(void) {
+    int dim[2] = {2, 3}; // Batch=2, Hidden=3
+    float x_data[6] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+    
+    // Scale=1, Shift=0 (makes the affine transformation a no-op)
+    int param_dim[1] = {3};
+    float gamma_data[3] = {1.0f, 1.0f, 1.0f}; 
+    float beta_data[3] = {0.0f, 0.0f, 0.0f};  
+    
+    // Pre-allocate output with zeros
+    float y_data[6] = {0.0f};
+
+    Tensor *x = Tensor_new(2, dim, x_data);
+    Tensor *y = Tensor_new(2, dim, y_data);
+    Tensor *gamma = Tensor_new(1, param_dim, gamma_data);
+    Tensor *beta = Tensor_new(1, param_dim, beta_data);
+
+    // Call our black box! Normalize across axis 1 (the hidden dimension)
+    layer_norm(x, y, gamma, beta, 1e-5f, 1);
+
+    // Mean of [1, 2, 3] is 2. Variance is 2/3 (0.666...). 
+    // Normalized 1: (1 - 2) / sqrt(0.666...) ~ -1.2247
+    // Normalized 2: (2 - 2) / sqrt(0.666...) ~ 0.0
+    // Normalized 3: (3 - 2) / sqrt(0.666...) ~ 1.2247
+    
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f, -1.22474f, y->data[0], "LN output[0] failed");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f,  0.0f,      y->data[1], "LN output[1] failed");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f,  1.22474f,  y->data[2], "LN output[2] failed");
+    
+    // The second row [4, 5, 6] has mean 5 and the exact same variance. (4-5) = -1.
+    // So the normalized outputs should be identical to the first row!
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f, -1.22474f, y->data[3], "LN output[3] failed");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f,  0.0f,      y->data[4], "LN output[4] failed");
+    TEST_ASSERT_FLOAT_WITHIN_MESSAGE(1e-4f,  1.22474f,  y->data[5], "LN output[5] failed");
+
+    Tensor_free(x);
+    Tensor_free(y);
+    Tensor_free(gamma);
+    Tensor_free(beta);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_relu);
@@ -187,5 +228,6 @@ int main(void) {
     RUN_TEST(test_log_softmax_translation);
     RUN_TEST(test_mean_axis1);
     RUN_TEST(test_var_zero);
+    RUN_TEST(test_layer_norm);
     return UNITY_END();
 }
