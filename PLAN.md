@@ -13,6 +13,8 @@ Building a pure-C transformer inference engine. Inference only. Target: ARM Cort
   - Create a pre-allocated memory pool.
   - Route tensor creations through the arena instead of `malloc`.
   - Reset the arena at the end of every inference pass (zero garbage collection overhead).
+  - Do not forget to check for memory alignment issues
+  - Think about which policy to execute when the Arena is full. Do we simply erase everything? Do we overwrite starting from the start? What else?
 
 ## Future Phases
 - [ ] **Transformer Blocks:** Self-Attention, Positional Encoding, Feed-Forward Networks.
