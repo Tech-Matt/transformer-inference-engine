@@ -3,3 +3,7 @@ PERSONA.md
 copilot-instructions.md
 build/
 CLAUDE.md
+
+# Doxygen output
+html/
+latex/

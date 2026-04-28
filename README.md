@@ -13,6 +13,9 @@ make test     # Run the test suite
 make clean    # Clean binaries
 ```
 
+## Results
+- Performance Plots with some tiny Transformers
+
 ## Possible Future Optimizations
 - Introduce different levels of quantization
 - Aproximate [LayerNorm](https://ieeexplore.ieee.org/abstract/document/11373553)
