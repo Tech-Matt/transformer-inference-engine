@@ -18,7 +18,9 @@ make clean    # Clean binaries
 
 ## Possible Future Optimizations
 - Introduce different levels of quantization
-- Aproximate [LayerNorm](https://ieeexplore.ieee.org/abstract/document/11373553)
+- Approximate [LayerNorm](https://ieeexplore.ieee.org/abstract/document/11373553)
+- Alignment is also important. Apparently aligning the arena allocation at every 16 bytes, makes it possible to use SIMD instructions (to be verified)
+- The arena allocator can be used in a sort of "wrapping" mode. Once the memory is full with the activations of the next layer, the previous layer activations are useless and can be freed from the memory block, thus releasing memory for the next layer. This makes it possible to execute models with a dynamic size larger than the memory of the device RAM. The max usage of RAM can be statically analyzed on an "offline" planning phase, like frameworks like Tensorflow are already doing.
 
 ## Useful Papers to be read
 - https://arxiv.org/abs/1802.04799
