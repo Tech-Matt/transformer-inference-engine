@@ -1,8 +1,10 @@
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "ops.h"
+#include "tensor.h"
 
 /**
  * @brief Rectified Linear Unit function
@@ -20,7 +22,7 @@ void relu(const Tensor *in, Tensor *out) {
     for (int i = 0; i < in->ndim; i++) {
         assert(in->dim[i] == out->dim[i] && "Tensors dim do not match.");
     }
-    
+
     int tensor_size = in->strides[0] * in->dim[0];
 
     // Perform RELU
@@ -39,7 +41,7 @@ void relu(const Tensor *in, Tensor *out) {
  *
  * @param in Input Tensor.
  * @param out Output Tensor
- */ 
+ */
 void softmax(const Tensor *in, Tensor *out) {
     // Check tensors sizes match
     assert(in->ndim == out->ndim && "Tensors ndim do not match.");
@@ -79,7 +81,7 @@ void softmax(const Tensor *in, Tensor *out) {
  *
  * @param in Input Tensor.
  * @param out Output Tensor
- */ 
+ */
 void log_softmax(const Tensor *in, Tensor *out) {
     // Check tensors sizes match
     assert(in->ndim == out->ndim && "Tensors ndim do not match.");
@@ -143,11 +145,11 @@ void mean(const Tensor *in, Tensor *out, int axis) {
     for (int flat_idx = 0; flat_idx < in_buf_size; flat_idx++) {
         // Convert flat-index indecing to multi-dim coordinates
         // e.g flat_idx=5 in [3, 4] tensor -> coords=[1, 1]
-        int coords[in->ndim];
+        int coords[MAX_NDIM];
         int rem = flat_idx;
         for(int d = 0; d < in->ndim; d++) {
-            coords[d] = rem / in->strides[d]; 
-            rem %= in->strides[d]; 
+            coords[d] = rem / in->strides[d];
+            rem %= in->strides[d];
         }
         // at the end of this cycle coords=[1, 1] for a tensor like
         // the one above with dim[3, 4]
@@ -155,7 +157,7 @@ void mean(const Tensor *in, Tensor *out, int axis) {
         // Build output coordinats by DROPPING the reduction axis
         // e.g. coords=[1, 2, 3], axis=1 (drop axis 1)
         // -> output coords=[1, 0, 3]
-        int out_coords[out->ndim];
+        int out_coords[MAX_NDIM];
         for (int d = 0; d < in->ndim; d++) {
             if (d != axis) {
                 out_coords[d] = coords[d]; // Keep this coordinate
@@ -177,7 +179,7 @@ void mean(const Tensor *in, Tensor *out, int axis) {
         // what happens in the above step is that elements of the
         // reduced axis are summed over in the output bucket
     }
-    
+
     // Divide all sums by the number of elems summed
     float inv_n = 1.0f / (float)in->dim[axis];
     for (int i = 0; i < out_buf_size; i++) {
@@ -197,11 +199,11 @@ void mean(const Tensor *in, Tensor *out, int axis) {
  * @param out Output Tensor.
  * @param axis Axis to reduce.
  */
-void var(const Tensor* in, Tensor *out, int axis) {
+void var(Arena *scratch, const Tensor* in, Tensor *out, int axis) {
     // Check ndim, axis, and output shape
     assert(in->ndim == out->ndim && "var: ndim mismatch");
     assert(axis >= 0 && axis < in->ndim && "var: axis out of bounds");
- 
+
     for (int d = 0; d < in->ndim; d++) {
         if (d == axis) {
             assert(out->dim[d] == 1 && "var: reduced axis dim must be 1");
@@ -211,7 +213,10 @@ void var(const Tensor* in, Tensor *out, int axis) {
     }
 
     int out_elems = out->strides[0] * out->dim[0];
-    float *mean_buf = malloc(sizeof(float) * out_elems);
+
+    // Save the Arena state!
+    size_t bookmark = arena_get_bookmark(scratch);
+    float *mean_buf = arena_alloc(scratch, sizeof(float) * out_elems);
     assert(mean_buf != NULL && "var: mean buffer allocation failed");
 
     // Pass 1: compute mean per output bucket
@@ -248,7 +253,8 @@ void var(const Tensor* in, Tensor *out, int axis) {
         out->data[i] *= inv_n;
     }
 
-    free(mean_buf);
+    // Restore the arena state
+    arena_free_to_bookmark(scratch, bookmark);
 }
 
 
@@ -268,7 +274,7 @@ void var(const Tensor* in, Tensor *out, int axis) {
  * @param epsilon Small constant for numerical stability.
  * @param axis Axis along which to normalize.
  */
-void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *beta, float epsilon, int axis) {
+void layer_norm(Arena *scratch, const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *beta, float epsilon, int axis) {
      // --- Argument validation ---
      assert(x->ndim == y->ndim && "layer_norm: ndim mismatch");
      assert(gamma->ndim == 1 && beta->ndim == 1);
@@ -277,22 +283,25 @@ void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *b
          assert(x->dim[i] == y->dim[i] && "layer_norm: dim mismatch");
      }
 
+     // Save arena state before allocation
+     size_t bookmark = arena_get_bookmark(scratch);
+
      /* --- Allocate temporary tensors for mean and variance ---
       * Shape: same as input but with the reduction axis compressed to size 1.
       * For input shape [batch, seq, hidden] and axis=2 (hidden),
       * t_mean and t_var will have shape [batch, seq, 1].
       */
-     float *data_mean = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
-     int *dim_mean = malloc(sizeof(int) * x->ndim);
+     float *data_mean = arena_alloc(scratch, sizeof(float) * x->dim[0] * x->strides[0]);
+     int dim_mean[MAX_NDIM];
      memcpy(dim_mean, x->dim, sizeof(int) * x->ndim);
      dim_mean[axis] = 1;
-     Tensor *t_mean = Tensor_new(x->ndim, dim_mean, data_mean); 
+     Tensor *t_mean = Tensor_new(scratch, x->ndim, dim_mean, data_mean);
 
-     float *data_var = malloc(sizeof(float) * x->dim[0] * x->strides[0]);
-     int *dim_var = malloc(sizeof(int) * x->ndim);
+     float *data_var = arena_alloc(scratch, sizeof(float) * x->dim[0] * x->strides[0]);
+     int dim_var[MAX_NDIM];
      memcpy(dim_var, x->dim, sizeof(int) * x->ndim);
      dim_var[axis] = 1;
-     Tensor *t_var = Tensor_new(x->ndim, dim_var, data_var); 
+     Tensor *t_var = Tensor_new(scratch, x->ndim, dim_var, data_var);
 
      /* --- Step 1: Compute mean and variance per token ---
       * After this, for each token (position along non-axis dimensions),
@@ -300,7 +309,7 @@ void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *b
       * t_mean->data[out_flat] and t_var->data[out_flat].
       */
      mean(x, t_mean, axis);
-     var(x, t_var, axis);
+     var(scratch, x, t_var, axis);
 
      /* --- Step 2: Normalize every element and apply affine transform --- */
      int total_elems = x->dim[0] * x->strides[0];
@@ -352,17 +361,6 @@ void layer_norm(const Tensor *x, Tensor *y, const Tensor *gamma, const Tensor *b
          y->data[i] = y_val;
      }
 
-     /* --- Step 3: Free temporary memory ---
-      * Tensor_free() already frees t->data, t->dim, t->strides, and t itself.
-      * But we allocated dim_mean, data_mean, dim_var, data_var separately,
-      * so those must be freed first before calling Tensor_free() on the Tensor structs.
-      */
-     free(data_mean);
-     free(dim_mean);
-     Tensor_free(t_mean);
-
-     free(data_var);
-     free(dim_var);
-     Tensor_free(t_var);
+     // Free data structures from Arena
+     arena_free_to_bookmark(scratch, bookmark);
  }
-    

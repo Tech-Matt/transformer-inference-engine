@@ -9,6 +9,12 @@
 #ifndef TENSOR_H
 #define TENSOR_H
 
+#include "arena.h"
+
+// Our tensors will never grow past 3,4 dimensions. Just to be sure an
+// 8th dimensional tensor will be taken as the upper limit. In this case
+// we can easily allocate dimensions array on the stack with this constant.
+#define MAX_NDIM 8
 
 // A tensor is a multidimensional array, which can have as many dimensions as you'd like
 // Since we don't know how many dimensions it will have a startup, we can store it as a flat array.
@@ -22,20 +28,23 @@
 // - data: the flat tensor array
 typedef struct Tensor {
     int ndim;
-    int *dim;
-    int *strides;
+    int dim[MAX_NDIM];
+    int strides[MAX_NDIM];
     float *data;
 } Tensor;
 
 
+
 // Empty constructor
-Tensor * Tensor_empty(); 
+Tensor * Tensor_empty(Arena *a);
 
 // Full constructor
-Tensor * Tensor_new(int ndim, int * dim, float *data);
+Tensor * Tensor_new(Arena *a, int ndim, int * dim, float *data);
 
 // Destructor
-void Tensor_free(Tensor *t);
+// We do not need any destructor, since memory is managed by the Arena
+// and we can not free single structs from the memory block. The arena can just be freed
+// completely.
 
 // Element-wise ops - tensor + tensor
 void tensor_add(const Tensor *a, const Tensor *b, Tensor *out);

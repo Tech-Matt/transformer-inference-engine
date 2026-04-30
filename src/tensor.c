@@ -1,6 +1,8 @@
+#include <alloca.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
 #include "tensor.h"
 
 #define DEFAULT_NDIM 2
@@ -15,29 +17,27 @@
  *
  * @return Pointer to newly allocated Tensor.
  */
-Tensor * Tensor_empty() {
-    Tensor * t;
-    t = malloc(sizeof(Tensor));
+Tensor * Tensor_empty(Arena *a) {
+    // Allocate the struct from the arena
+    Tensor * t = arena_alloc(a, sizeof(Tensor));
     t->ndim = DEFAULT_NDIM;
 
-    int *dim = malloc(sizeof(int) * DEFAULT_NDIM);
+    // Initialize dim
     for(int i = 0; i < t->ndim; i++) {
-        dim[i] = DEFAULT_DIM_SIZE;
+        t->dim[i] = DEFAULT_DIM_SIZE;
     }
-    t->dim = dim;
 
-    /* TODO: strides computation is duplicated in Tensor_new() — extract into
-     * a static helper once both constructors are stable. */
-    int *strides = malloc(sizeof(int) * t->ndim);
+    // Initializes strides
     int stride_partial = 1;
     for (int i = t->ndim - 1; i >= 0; i--) {
-        strides[i] = stride_partial;
+        t->strides[i] = stride_partial;
         stride_partial *= t->dim[i];
     }
-    t->strides = strides;
 
-    int data_buffer_size = strides[0] * t->dim[0];
-    t->data = calloc(data_buffer_size, sizeof(float));
+    // Allocate data from the arena and ZERO it out
+    int data_buffer_size = t->strides[0] * t->dim[0];
+    t->data = arena_alloc(a, data_buffer_size * sizeof(float));
+    memset(t->data, 0, data_buffer_size * sizeof(float));
 
     return t;
 }
@@ -55,46 +55,26 @@ Tensor * Tensor_empty() {
  * @param data  Flat array of (product of all dims) floats to copy in.
  * @return Pointer to newly allocated Tensor.
  */
-Tensor * Tensor_new(int ndim, int *dim, float *data) {
-    Tensor *t = malloc(sizeof(Tensor));
+Tensor * Tensor_new(Arena *a, int ndim, int *dim, float *data) {
+    // Allocate tensor on the arena
+    Tensor *t = arena_alloc(a, sizeof(Tensor));
     t->ndim = ndim;
-
-    int *dim_copy = malloc(sizeof(int) * ndim);
-    memcpy(dim_copy, dim, sizeof(int) * ndim);
-    t->dim = dim_copy;
+    memcpy(t->dim, dim, sizeof(int) * ndim);
 
     /* strides[i] = product of dim[i+1..ndim-1]; strides[ndim-1] = 1
      * e.g. shape [3,4,5] → strides [20, 5, 1] */
-    int *strides = malloc(sizeof(int) * t->ndim);
     int stride_partial = 1;
     for (int i = t->ndim - 1; i >= 0; i--) {
-        strides[i] = stride_partial;
+        t->strides[i] = stride_partial;
         stride_partial *= t->dim[i];
     }
-    t->strides = strides;
 
-    int data_buffer_size = strides[0] * t->dim[0];
-    float *data_copy = malloc(sizeof(float) * data_buffer_size);
-    memcpy(data_copy, data, sizeof(float) * data_buffer_size);
-    t->data = data_copy;
+    // Allocate data on the arena and copy values
+    int data_buffer_size = t->strides[0] * t->dim[0];
+    t->data = arena_alloc(a, sizeof(float) * data_buffer_size);
+    memcpy(t->data, data, sizeof(float) * data_buffer_size);
 
     return t;
-}
-
-
-/**
- * @brief Free all memory owned by a Tensor.
- *
- * Frees data, dim, strides, and the Tensor struct itself. The pointer
- * is invalid after this call.
- *
- * @param t Tensor to free.
- */
-void Tensor_free(Tensor *t) {
-    free(t->data);
-    free(t->strides);
-    free(t->dim);
-    free(t);
 }
 
 
@@ -201,7 +181,7 @@ void tensor_div(const Tensor *a, const Tensor *b, Tensor *out) {
  * @brief Element-wise scalar addition: out[i] = a[i] + s
  *
  * `a` and `out` must have identical shape. `out` may alias `a` for in-place
- * operation. Asserts fire on shape mismatch; 
+ * operation. Asserts fire on shape mismatch;
  *
  * @param a   Input tensor (read-only).
  * @param s   Scalar addend.
